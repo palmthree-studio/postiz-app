@@ -1,0 +1,46 @@
+---
+name: "li3: build patched image"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Upstream tag the li3 branch is based on (e.g. v2.25.1)"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check scopes patch
+        run: |
+          grep -q "scopes = \['openid', 'profile', 'w_member_social'\];" \
+            libraries/nestjs-libraries/src/integrations/social/linkedin.provider.ts
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/postiz-app:${{ inputs.tag }}-li3
+        run: |
+          docker buildx build --platform linux/amd64 \
+            -f Dockerfile.dev \
+            --build-arg NEXT_PUBLIC_VERSION=${{ inputs.tag }}-li3 \
+            --pull --provenance=false --sbom=false \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            --output "type=registry,name=${IMAGE}" .
