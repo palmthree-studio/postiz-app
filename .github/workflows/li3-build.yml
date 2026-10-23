@@ -1,12 +1,16 @@
 ---
 name: "li3: build patched image"
 
+# Push-triggered: workflow_dispatch only works for workflows on the default branch.
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Upstream tag the li3 branch is based on (e.g. v2.25.1)"
-        required: true
+  push:
+    branches:
+      - li3
+      - 'li3-*'
+
+env:
+  # Upstream tag the branch is based on; bump it on each rebase.
+  BASE_TAG: v2.25.1
 
 permissions:
   contents: read
@@ -36,11 +40,11 @@ jobs:
 
       - name: Build and push
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/postiz-app:${{ inputs.tag }}-li3
+          IMAGE: ghcr.io/${{ github.repository_owner }}/postiz-app:${{ env.BASE_TAG }}-li3
         run: |
           docker buildx build --platform linux/amd64 \
             -f Dockerfile.dev \
-            --build-arg NEXT_PUBLIC_VERSION=${{ inputs.tag }}-li3 \
+            --build-arg NEXT_PUBLIC_VERSION=${{ env.BASE_TAG }}-li3 \
             --pull --provenance=false --sbom=false \
             --label org.opencontainers.image.revision=${{ github.sha }} \
             --output "type=registry,name=${IMAGE}" .
